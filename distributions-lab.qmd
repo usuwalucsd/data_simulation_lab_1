@@ -1,10 +1,10 @@
 ---
 title: "Simulations & Tidyverse lab"
 subtitle: "PSYC 201A, Data Simulation Lab 1"
-author: "Your name here"
+author: "Urvi Suwal"
 date: today
 format:
-  html:
+  pdf:
     toc: true
     toc-depth: 2
     embed-resources: true
@@ -69,8 +69,16 @@ Calculate some basic summaries of this dataframe and print them out
 ```{r}
 # TODO: Calculate mean, sd, and n for norm_df
 # Hint: Use summarise() with mean(), sd(), and n()
+summary <- norm_df %>% 
+  summarize(
+    mean = mean(sim_values), 
+    sd = sd(sim_values), 
+    n= n()
+  )
 
+print(summary)
 # What happens if you increase the "n"? How do these summaries change?
+
 ```
 
 I'm going to now plot a histogram of these values. We're going to spend a lot of time on figuring out how to plot things later -- but here you can start learning the basics.
@@ -89,6 +97,29 @@ ggplot(norm_df, aes(x=sim_values)) +
 
 Write one sentence with an inline mean (e.g., `r round(mean(norm_df$sim_values), 2)`).
 
+```{r}
+
+norm_df_2 <- tibble(sim_values = rnorm(300, 10, 2))
+norm_df_3 <- tibble(sim_values = rnorm(300, 10, 5))
+
+summary_2 <- norm_df_2 %>% 
+  summarize(
+    mean = mean(sim_values), 
+    sd = sd(sim_values), 
+    n= n()
+  )
+
+summary_3 <- norm_df_3 %>% 
+  summarize(
+    mean = mean(sim_values), 
+    sd = sd(sim_values), 
+    n= n()
+  )
+
+
+print(summary_2)
+print(summary_3)
+```
 **Bonus:** Compute another kind of summary statistic on the dataset.
 
 **Bonus:** Simulate another distribution and also plot it on the same histogram (you can make it a different color)
@@ -112,20 +143,41 @@ Tasks:
 # TODO: create a simulated dataframe using rbinom (remember, you can look at the help for the function)
 # Hint: Use tibble() and rbinom(n=200, size=1, prob=0.92)
 
+acc_df <- tibble(acc = rbinom(n=200, size = 1, prob=0.92))
+
+acc_df_summary <- acc_df %>%
+  summarise(
+    prop_correct = mean(acc), 
+    n = n()
+  )
+
+acc_count <- acc_df %>% count(acc)
+
+
 # TODO: summarise and count
+  
+print(acc_df_summary)
 # Hint: Use summarise() to calculate proportion correct and n, then count(acc) for the count table
 ```
 
 ```{r}
 ## TO DO: Make a histogram of these values
 # Hint: Use ggplot() with geom_histogram()
+ggplot(acc_df, aes(x=acc)) +
+  geom_histogram(binwidth = 1, alpha = 0.85) +
+  labs(title = "Simulated values", x = "Accuracy", y = "Count")
 ```
 
 ```{r}
 # TODO: plot overall proportion 
 # Hint:  use `stat_summary(fun = mean)` for the mean
+ggplot(acc_df, aes(x = 'overall', y=acc)) + 
+    stat_summary(fun.data = mean_se, fun.args = list(mult = 1.96), geom = "errorbar", width = 0.1) +
 
-# TODO: Plot some measure of variability (SD or 95% CI)
+  stat_summary(fun = mean, geom = "point", size=4, color= 'red') + 
+    labs(y = "prop correct", title = "accuracy")
+
+  # TODO: Plot some measure of variability (SD or 95% CI)
 # Hint: stat_summary(fun.data = mean_se, fun.args = list(mult = 1.96), geom = "errorbar", width = 0.1) +
 # mean_se(mult = 1.96) gives the mean +/- 1.96 standard errors, an approximate 95% CI
 # You have to give stat_summary an x-value, but since there isn't really one here you can just give it a label (e.g., "overall")
@@ -147,14 +199,43 @@ Tasks:
 # Use rep() to repeat conditions and blocks appropriately
 # Use rbinom() with different probabilities for easy vs hard conditions
 
+acc_cond <- tibble(
+  participant = factor('lab01'),
+  condition = rep(c("easy", "hard"), each = 100),  
+  block = rep(rep(1:4, each = 25), times = 2),   
+  acc = c(
+    rbinom(n=100, 1, 0.97), 
+    rbinom(n=100, 1, 0.87)   
+  )
+)
+
 # TODO: Check per-block counts
 # Hint: Use add_count() and distinct()
+
+acc_cond %>%
+  add_count(block, name = "block_count") %>% 
+  distinct(block, block_count)
+
 
 # TODO: Summaries by condition × block
 # Hint: Use group_by() and summarise()
 
+acc_cond_block <- acc_cond %>% 
+  group_by(condition, block) %>%
+  summarize(
+    prop_correct = mean(acc), 
+    trials = n(), 
+    .groups = 'drop'
+  )
 # TODO: Pivot wider
 # Hint: Use pivot_wider() to make conditions into separate columns
+
+acc_cond_block_wider <- acc_cond_block %>% 
+  pivot_wider(
+    names_from = condition,     
+    values_from = prop_correct   
+  )
+
 ```
 
 Inline prompt: "Overall accuracy = `r NA`. Easy = `r NA`, Hard = `r NA`." Replace NA with inline code.
@@ -175,8 +256,9 @@ Here's a helper function to create lognormal RTs with a baseline shift. Note on 
 
 ```{r}
 # Helper: shifted lognormal RTs (t0 + LogNormal(meanlog, sdlog))
-r_shifted_lognorm <- function(n, t0, meanlog, sdlog) {
-  t0 + rlnorm(n, meanlog = meanlog, sdlog = sdlog)
+
+r_shifted_lognorm<- function(n, t0, meanlog, sdlog){
+ t0 + rlnorm(n, meanlog = meanlog, sdlog = sdlog) 
 }
 ```
 
@@ -185,6 +267,13 @@ r_shifted_lognorm <- function(n, t0, meanlog, sdlog) {
 # TODO: Simulate RTs and their logged RTs
 # Hint: Use the r_shifted_lognorm() function with the specified parameters
 # Create a tibble with rt and log_rt columns
+
+
+
+rt_df <- tibble(rt = r_shifted_lognorm(n=500, t0=300, meanlog = log(250), sdlog = 0.35)) %>%
+  mutate(log_rt = log(rt))
+
+
 ```
 
 Now look at their relationship -- use `ggplot()` with `geom_point()`, putting `rt` on the x-axis and `log_rt` on the y-axis.
@@ -192,6 +281,9 @@ Now look at their relationship -- use `ggplot()` with `geom_point()`, putting `r
 ```{r}
 # TODO: Plot rt vs log_rt
 # Hint: ggplot() with geom_point()
+ggplot(rt_df, aes(x = rt, y = log_rt)) +
+  geom_point() +
+  labs(x = "reaction time", y = "log(rt)")
 ```
 
 Now plot a histogram of `rt`, and another of `log_rt`. Which one looks more like a normal distribution?
@@ -199,6 +291,13 @@ Now plot a histogram of `rt`, and another of `log_rt`. Which one looks more like
 ```{r}
 # TODO: histograms of rt and log_rt
 # Hint: ggplot() with geom_histogram(), as in section A
+ggplot(rt_df, aes(x = rt)) +
+  geom_histogram(bins = 100) +
+  labs(x = "reaction time", y = "count")
+
+ggplot(rt_df, aes(x = log_rt)) +
+  geom_histogram(bins = 100) +
+  labs(x = "log(rt)", y = "count")
 ```
 
 OK, now let's make some summaries. Use the summarize function to calculate the mean, median, max, and sd of the rt distribution. Note that you don't have to make a new dataframe for this.
@@ -206,6 +305,14 @@ OK, now let's make some summaries. Use the summarize function to calculate the m
 ```{r}
 # TODO: summaries
 # Hint: Use summarise() to calculate mean_rt, median_rt, max_rt, sd_rt
+rt_summary <- rt_df %>%
+  summarise(
+    mean_rt = mean(rt), 
+    median_rt = median(rt), 
+    max_rt = max(rt), 
+    sd_rt = sd(rt)
+    )
+
 ```
 
 ## D. Two conditions: valid vs invalid cue
@@ -220,6 +327,14 @@ Add a **condition** factor. Suppose invalid cues slow responses by \~**40 ms** o
 # TODO: Simulate RTs for valid and invalid conditions
 # Hint: Use r_shifted_lognorm() with different parameters for each condition
 # Invalid cues should be slower (higher meanlog)
+
+val_inval <- tibble(
+  valid_rt = r_shifted_lognorm(n=500, t0=300, meanlog = log(250), sdlog = 0.35), 
+  invalid_rt = r_shifted_lognorm(n=500, t0=300, meanlog = log(250), sdlog = 0.35)
+  )
+
+val_inval
+
 ```
 
 Use `pivot_longer` to make this a long dataframe, where `rt` is just one column, and you have `condition` in another column. Use the `?` to look at the arguments for the function.
@@ -227,6 +342,9 @@ Use `pivot_longer` to make this a long dataframe, where `rt` is just one column,
 ```{r}
 # TODO: Use pivot_longer to reshape the data
 # Hint: Convert rt_valid and rt_invalid columns into rt and condition columns
+
+val_inval_longer <- val_inval %>% 
+  pivot_longer(cols=c('valid_rt','invalid_rt'), values_to='rt', names_to='condition')
 ```
 
 Now, use `group_by(condition)` before computing your summaries in tidyverse -- you should see outputs grouped by condition.
@@ -235,6 +353,9 @@ Now, use `group_by(condition)` before computing your summaries in tidyverse -- y
 
 # TODO: group_by() condition and summarise mean_rt, sd_rt
 # Hint: Use group_by(condition) then summarise()
+val_inval_summary <- val_inval_longer %>%
+  group_by(condition) %>% 
+ summarise(mean_rt = mean(rt), sd_rt = sd(rt), n = n())
 ```
 
 Now, make some sort of visual of the two distributions. Give the raw dataframe to ggplot, and use `geom_density` to plot the density (you can toggle `alpha` here to change the transparency). Use `fill=condition` within `aes` to specify that the two conditions should have different colors.
@@ -242,6 +363,8 @@ Now, make some sort of visual of the two distributions. Give the raw dataframe t
 ```{r}
 ## TODO: Use ggplot to make density plot of simulated data
 # Hint: Use geom_density() with fill=condition in aes()
+ggplot(val_inval_longer, aes(x=rt, fill=condition)) +
+  geom_density() 
 ```
 
 BONUS. Okay, so far you've been simulating "raw" data -- i.e., 500 trials of valid, and 500 trials of invalid cueing. Try simulating 20 different participants, where each participant completes 200 trials (100 valid, 100 invalid).
